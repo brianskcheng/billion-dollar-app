@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/send-due",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/check-replies",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}
