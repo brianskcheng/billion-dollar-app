@@ -1,0 +1,48 @@
+---
+description: Model and parallel agent selection for Cursor Ultra quota management
+alwaysApply: true
+---
+
+# Model and Agent Selection
+
+## When to Use Heavy / New Models (Opus, etc.)
+
+Costly frontier models (Opus, GPT-5, etc.) burn quota fast. Only select them for:
+- Task is ambiguous or multi-step with unclear solution path
+- Debugging, root-cause analysis, or unfamiliar codebase exploration
+- Code review, architectural decisions, or high-stakes changes
+- User explicitly asks for best quality or to "try the good model"
+
+When you have quota headroom (Ultra), favor capable models for these cases.
+
+## When to Conserve (Use Fast / Light)
+
+Avoid Opus (and other costly frontier models) for routine work. Use fast/light models when:
+- Single-step, narrow scope (fix typo, add import, rename, simple lint)
+- Straightforward edits with clear spec (copy pattern from existing file)
+- E2E test runs, grep-based searches, running commands
+- User says "quick fix" or "minor"
+
+For mcp_task: pass `model: "fast"` on subagent calls for small, well-defined tasks.
+
+## Parallel Agents
+
+**Use parallel (mcp_task) when:**
+- 2+ tasks are independent (different files, no shared state mid-task)
+- Each task is non-trivial (otherwise overhead not worth it)
+- Example: "add export to campaigns and leads" = 2 agents; "fix auth and leads bugs" = 2 agents if separate areas
+
+**Do not parallel when:**
+- Tasks share files or depend on each other
+- Single logical unit (one API + its caller)
+- Trivial work (2 quick fixes) - do sequentially to save quota
+
+**Rule of thumb:** Spawn 2-4 agents only when the work genuinely splits; avoid parallelizing for 1-2 step trivial requests.
+
+## Summary
+
+| Task type        | Model     | Parallel        |
+|------------------|-----------|------------------|
+| Trivial / narrow | Fast      | No               |
+| Medium, clear    | Default   | Only if 2+ independent |
+| Complex / fuzzy  | Capable   | Yes if splittable |

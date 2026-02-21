@@ -1,0 +1,20 @@
+---
+description: Global rules for all sessions
+alwaysApply: true
+---
+
+# Global Rules
+
+- Report like a manager. Big picture first, concise. Details only when asked
+- No emojis
+- No auto git commit. User runs commits manually
+- Do not generate BAT/PS1 files
+- Do not auto-add debug/summary docs unless requested
+- Avoid redundant code; stacked errors
+- Use mcp_task for parallel agents when tasks are independent
+- Default to parallel: for multi-step tasks, prefer spawning 2-4 agents over sequential execution
+- Verify after change: run npm run test (or relevant subset) after code edits that touch routes/lib
+- Prefer plan first: for non-trivial requests, create or reference a plan before implementation
+- Do only what you can automate; user handles manual checks
+- New features: create dedicated folder, store all new files there
+- Repetition detection: when the user repeats requests or workflows, surface it and suggest adding a skill, rule, or command. Ask before creating.

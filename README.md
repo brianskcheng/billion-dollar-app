@@ -12,6 +12,9 @@ Next.js 14 app for lead generation and outreach campaigns. Uses Supabase (auth/d
 
 ## Documentation
 
+- [docs/PROMPTS_PROFILE.md](docs/PROMPTS_PROFILE.md) – Rules, skills, subagents, commands (consolidated)
+- [docs/COMMANDS.md](docs/COMMANDS.md) – Copy-paste prompts
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) – Stack, schema, API contract
 - [docs/WORKFLOWS.md](docs/WORKFLOWS.md) – All user workflows, flows, dependencies
 - [docs/TEST_REPORT.md](docs/TEST_REPORT.md) – Workflow test checklist
 - [docs/SETUP_GMAIL.md](docs/SETUP_GMAIL.md) – One Google OAuth app (Supabase + .env)
