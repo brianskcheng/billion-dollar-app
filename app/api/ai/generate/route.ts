@@ -1,3 +1,4 @@
+import { requireAuth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getOpenAI, parseJsonResponse } from "@/lib/openai";
 import {
@@ -6,6 +7,9 @@ import {
   FOLLOWUP_SYSTEM,
   followupUser,
 } from "@/lib/prompts";
+import { DEFAULT_OFFER, DEFAULT_VALUE_PROP } from "@/lib/defaults";
+import { getActiveIntegration } from "@/lib/email-provider";
+import { parseBody, aiGenerateSchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 
 type GenerateInput = {
@@ -15,10 +19,9 @@ type GenerateInput = {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth(supabase);
+  if (auth.response) return auth.response;
+  const user = auth.user;
 
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
@@ -28,14 +31,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json();
-  const leadId = body.leadId as string;
-  const campaignId = body.campaignId as string | null;
-  const step = (body.step as number) ?? 1;
-
-  if (!leadId) {
-    return NextResponse.json({ error: "leadId required" }, { status: 400 });
-  }
+  const parsed = await parseBody(aiGenerateSchema, request);
+  if (parsed.error) return parsed.error;
+  const { leadId, campaignId, step: stepRaw } = parsed.data;
+  const step = stepRaw ?? 1;
 
   const { data: lead } = await supabase
     .from("leads")
@@ -56,10 +55,8 @@ export async function POST(request: Request) {
 
   const companyName = (profile?.company_name as string) ?? "Our company";
   const niche = (profile?.niche as string) ?? "Recruitment agencies selling to SMEs";
-  const valueProp =
-    "We place pre-vetted candidates fast (7-10 days) without wasting your time.";
-  const offer =
-    "15-min call + we'll share 3 candidate profiles relevant to you.";
+  const valueProp = DEFAULT_VALUE_PROP;
+  const offer = DEFAULT_OFFER;
 
   let campaignValueProp = valueProp;
   let campaignOffer = offer;
@@ -136,6 +133,8 @@ export async function POST(request: Request) {
     result = parseJsonResponse<GenerateInput>(text);
   }
 
+  const integration = await getActiveIntegration(supabase, user.id);
+
   const { data: message, error } = await supabase
     .from("messages")
     .insert({
@@ -146,7 +145,7 @@ export async function POST(request: Request) {
       subject: result.subject ?? "Quick question",
       body_text: result.body_text ?? "",
       status: "queued",
-      provider: "gmail",
+      ...(integration && { provider: integration.provider }),
       meta: { step, model: "gpt-4o-mini" },
     })
     .select("id, subject, body_text")

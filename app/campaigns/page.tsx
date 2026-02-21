@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { CampaignsList } from "@/components/campaigns-list";
-import { ConnectGmailButton } from "@/components/connect-gmail-button";
+import { ConnectEmailButton } from "@/components/connect-email-button";
 
 export default async function CampaignsPage({
   searchParams,
@@ -16,6 +16,17 @@ export default async function CampaignsPage({
   const params = await searchParams;
   const preselectedLeadId = params.lead;
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const isAdmin =
+    (profile?.role as string) === "admin" ||
+    (process.env.ADMIN_EMAIL &&
+      user.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
+
   const { data: campaigns } = await supabase
     .from("campaigns")
     .select("*")
@@ -28,6 +39,12 @@ export default async function CampaignsPage({
     .eq("user_id", user.id)
     .single();
 
+  const { data: microsoft } = await supabase
+    .from("integrations_microsoft")
+    .select("email")
+    .eq("user_id", user.id)
+    .single();
+
   return (
     <main className="min-h-screen p-8">
       <nav className="flex gap-4 mb-8 items-center">
@@ -35,8 +52,12 @@ export default async function CampaignsPage({
         <Link href="/leads">Leads</Link>
         <Link href="/campaigns" className="font-medium">Campaigns</Link>
         <Link href="/inbox">Inbox</Link>
+        {isAdmin && <Link href="/admin">Admin</Link>}
         <div className="ml-auto flex items-center gap-4">
-          <ConnectGmailButton connected={!!gmail} />
+          <ConnectEmailButton
+            gmailConnected={!!gmail}
+            microsoftConnected={!!microsoft}
+          />
           <form action="/api/auth/logout" method="post">
             <button type="submit" className="text-gray-500 hover:text-black">
               Log out
@@ -48,7 +69,7 @@ export default async function CampaignsPage({
       <CampaignsList
         campaigns={campaigns ?? []}
         preselectedLeadId={preselectedLeadId}
-        gmailConnected={!!gmail}
+        emailConnected={!!gmail || !!microsoft}
       />
     </main>
   );

@@ -1,13 +1,32 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { LeadsTable } from "@/components/leads-table";
 import { ConnectEmailButton } from "@/components/connect-email-button";
 
-export default async function LeadsPage() {
+export default async function AdminPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const isAdminByRole = (profile?.role as string) === "admin";
+  const adminEmail = process.env.ADMIN_EMAIL?.trim();
+  const isAdminByEmail =
+    !!adminEmail &&
+    user.email?.toLowerCase() === adminEmail.toLowerCase();
+  const isAdmin = isAdminByRole || !!isAdminByEmail;
+
+  if (!isAdmin) redirect("/dashboard");
+
+  const service = await createServiceClient();
+  const { count: userCount } = await service
+    .from("profiles")
+    .select("id", { count: "exact", head: true });
 
   const { data: gmail } = await supabase
     .from("integrations_google")
@@ -21,30 +40,16 @@ export default async function LeadsPage() {
     .eq("user_id", user.id)
     .single();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  const isAdmin =
-    (profile?.role as string) === "admin" ||
-    (process.env.ADMIN_EMAIL &&
-      user.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
-
-  const { data: leads } = await supabase
-    .from("leads")
-    .select("*")
-    .order("created_at", { ascending: false });
-
   return (
     <main className="min-h-screen p-8">
       <nav className="flex gap-4 mb-8 items-center">
         <Link href="/dashboard">Dashboard</Link>
-        <Link href="/leads" className="font-medium">Leads</Link>
+        <Link href="/leads">Leads</Link>
         <Link href="/campaigns">Campaigns</Link>
         <Link href="/inbox">Inbox</Link>
-        {isAdmin && <Link href="/admin">Admin</Link>}
+        <Link href="/admin" className="font-medium">
+          Admin
+        </Link>
         <div className="ml-auto flex items-center gap-4">
           <ConnectEmailButton
             gmailConnected={!!gmail}
@@ -57,8 +62,10 @@ export default async function LeadsPage() {
           </form>
         </div>
       </nav>
-      <h1 className="text-2xl font-bold mb-4">Leads</h1>
-      <LeadsTable leads={leads ?? []} />
+      <h1 className="text-2xl font-bold mb-4">Admin</h1>
+      <p className="text-gray-600 mb-4">
+        Admin area. {userCount ?? 0} user(s) registered.
+      </p>
     </main>
   );
 }

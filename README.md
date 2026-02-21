@@ -1,12 +1,24 @@
 # Billion Dollar App
 
-Next.js 14 app for lead generation and outreach campaigns. Uses Supabase (auth/db), Stripe (billing), Gmail (send/inbox), OpenAI (content), and Apify (lead search).
+Next.js 14 app for lead generation and outreach campaigns. Uses Supabase (auth/db), Stripe (billing), Gmail or Outlook (send/inbox), OpenAI (content), and Apify (lead search).
 
 ## Quick Start
 
 1. `npm install`
 2. Copy `.env.example` to `.env.local` and fill required vars
-3. `npm run dev` – app at http://localhost:3000
+3. Run migrations in Supabase: `001_initial_schema.sql`, `002_admin_role.sql`, `003_integrations_microsoft.sql`
+4. In Supabase Dashboard: Authentication > URL Configuration, add `http://localhost:3000/auth/callback` to Redirect URLs (for Sign in with Google/Microsoft)
+5. `npm run dev` – app at http://localhost:3000
+
+## Documentation
+
+- [docs/WORKFLOWS.md](docs/WORKFLOWS.md) – All user workflows, flows, dependencies
+- [docs/TEST_REPORT.md](docs/TEST_REPORT.md) – Workflow test checklist
+- [docs/SETUP_GMAIL.md](docs/SETUP_GMAIL.md) – One Google OAuth app (Supabase + .env)
+- [docs/SETUP_MICROSOFT.md](docs/SETUP_MICROSOFT.md) – One Azure OAuth app (Supabase + .env)
+- [docs/SETUP_APIFY.md](docs/SETUP_APIFY.md) – Apify token for lead search
+- [docs/SETUP_OPENAI.md](docs/SETUP_OPENAI.md) – OpenAI API key for AI outreach
+- [docs/SETUP_STRIPE.md](docs/SETUP_STRIPE.md) – Stripe billing (Upgrade to Pro)
 
 ## Env Vars
 
@@ -17,10 +29,12 @@ Next.js 14 app for lead generation and outreach campaigns. Uses Supabase (auth/d
 | `SUPABASE_SERVICE_ROLE_KEY` | Server/cron key |
 | `OPENAI_API_KEY` | OpenAI for generated content |
 | `APIFY_API_TOKEN` | Apify for lead search |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Gmail OAuth |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Same as Supabase Google provider |
+| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` | Same as Supabase Azure provider |
 | `NEXT_PUBLIC_SITE_URL` | Base URL (e.g. http://localhost:3000) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID` | Stripe billing |
 | `CRON_SECRET` | Protect cron endpoints |
+| `ADMIN_EMAIL` | Optional; email that gets admin access |
 
 ## Scripts
 
@@ -36,6 +50,7 @@ Next.js 14 app for lead generation and outreach campaigns. Uses Supabase (auth/d
 - `app/` – Routes and API handlers (Next.js App Router)
 - `lib/` – Supabase clients, Stripe, Gmail, OpenAI, Apify, limits, prompts
 - `components/` – React components
+- `docs/` – Workflows, test report
 - `supabase/migrations/` – DB schema
 - `scripts/` – Smoke test and utilities
 
@@ -45,12 +60,15 @@ Next.js 14 app for lead generation and outreach campaigns. Uses Supabase (auth/d
 - `/dashboard` – Main hub
 - `/leads` – Search and manage leads
 - `/campaigns` – Create and run campaigns
-- `/inbox` – Gmail replies
+- `/inbox` – Email replies
+- `/admin` – Admin panel (role or ADMIN_EMAIL)
 
 ## Vercel Cron
 
 - `/api/cron/send-due` – Every 10 min
 - `/api/cron/check-replies` – Every 30 min
+
+Cron endpoints require `CRON_SECRET` in production. Pass `?secret=<CRON_SECRET>` when calling.
 
 ## Supabase Troubleshooting
 

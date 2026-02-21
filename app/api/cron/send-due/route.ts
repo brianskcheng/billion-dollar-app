@@ -6,7 +6,8 @@ import {
   FOLLOWUP_SYSTEM,
   followupUser,
 } from "@/lib/prompts";
-import { sendEmail } from "@/lib/gmail";
+import { DEFAULT_OFFER, DEFAULT_VALUE_PROP } from "@/lib/defaults";
+import { getActiveIntegration, sendEmail } from "@/lib/email-provider";
 import { checkCanSend } from "@/lib/limits";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -15,6 +16,10 @@ export const dynamic = "force-dynamic";
 const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function GET(request: NextRequest) {
+  const isProduction = process.env.NODE_ENV === "production";
+  if (isProduction && !CRON_SECRET) {
+    return NextResponse.json({ error: "CRON_SECRET is required in production" }, { status: 401 });
+  }
   if (CRON_SECRET && request.nextUrl.searchParams.get("secret") !== CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -59,11 +64,7 @@ export async function GET(request: NextRequest) {
 
     if ((sentToday ?? 0) >= (campaign.daily_send_limit ?? 10)) continue;
 
-    const { data: integration } = await supabase
-      .from("integrations_google")
-      .select("refresh_token, email")
-      .eq("user_id", campaign.user_id)
-      .single();
+    const integration = await getActiveIntegration(supabase, campaign.user_id);
 
     if (!integration) continue;
 
@@ -82,11 +83,9 @@ export async function GET(request: NextRequest) {
       .single();
 
     const valueProp =
-      (campaign.value_prop as string) ??
-      "We place pre-vetted candidates fast (7-10 days) without wasting your time.";
+      (campaign.value_prop as string) ?? DEFAULT_VALUE_PROP;
     const offer =
-      (campaign.offer as string) ??
-      "15-min call + we'll share 3 candidate profiles relevant to you.";
+      (campaign.offer as string) ?? DEFAULT_OFFER;
 
     let subject: string;
     let bodyText: string;
@@ -153,8 +152,8 @@ export async function GET(request: NextRequest) {
 
     try {
       const { messageId: providerMessageId, threadId } = await sendEmail(
-        integration.refresh_token as string,
-        integration.email as string,
+        integration,
+        integration.email,
         lead.email as string,
         subject,
         bodyText
@@ -167,7 +166,7 @@ export async function GET(request: NextRequest) {
         direction: "outbound",
         subject,
         body_text: bodyText,
-        provider: "gmail",
+        provider: integration.provider,
         provider_message_id: providerMessageId,
         thread_id: threadId,
         status: "sent",

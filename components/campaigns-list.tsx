@@ -15,11 +15,11 @@ type Campaign = {
 export function CampaignsList({
   campaigns,
   preselectedLeadId,
-  gmailConnected,
+  emailConnected,
 }: {
   campaigns: Campaign[];
   preselectedLeadId?: string;
-  gmailConnected: boolean;
+  emailConnected: boolean;
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -57,9 +57,9 @@ export function CampaignsList({
         >
           New campaign
         </button>
-        {!gmailConnected && (
+        {!emailConnected && (
           <span className="text-sm text-amber-600">
-            Connect Gmail to send emails
+            Connect email to send messages
           </span>
         )}
       </div>
@@ -148,6 +148,8 @@ function CampaignRow({
   >([]);
   const [showPicker, setShowPicker] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [addLeadError, setAddLeadError] = useState<string | null>(null);
 
   async function loadCampaignLeads() {
     if (loaded) return;
@@ -161,6 +163,7 @@ function CampaignRow({
 
   async function handleAddLead() {
     if (!addingLead.trim()) return;
+    setAddLeadError(null);
     const res = await fetch(`/api/campaigns/${campaign.id}/leads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -170,6 +173,10 @@ function CampaignRow({
       setAddingLead("");
       setLoaded(false);
       loadCampaignLeads();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      const msg = typeof data?.error === "string" ? data.error : (typeof data?.message === "string" ? data.message : "Failed to add lead");
+      setAddLeadError(msg);
     }
   }
 
@@ -187,6 +194,7 @@ function CampaignRow({
   }
 
   async function handleAddFromPicker(leadId: string) {
+    setAddLeadError(null);
     const res = await fetch(`/api/campaigns/${campaign.id}/leads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -196,6 +204,10 @@ function CampaignRow({
       setShowPicker(false);
       setLoaded(false);
       loadCampaignLeads();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      const msg = typeof data?.error === "string" ? data.error : (typeof data?.message === "string" ? data.message : "Failed to add lead");
+      setAddLeadError(msg);
     }
   }
 
@@ -210,20 +222,35 @@ function CampaignRow({
           <h3 className="font-medium">{campaign.name}</h3>
           <span className="text-sm text-gray-500">{campaign.status} </span>
           {campaign.status === "draft" && (
-            <button
-              onClick={async () => {
-                const res = await fetch(`/api/campaigns/${campaign.id}/start`, {
-                  method: "POST",
-                });
-                if (res.ok) window.location.reload();
-              }}
-              className="ml-2 text-sm text-blue-600"
-            >
-              Start
-            </button>
+            <>
+              <button
+                onClick={async () => {
+                  setStartError(null);
+                  const res = await fetch(`/api/campaigns/${campaign.id}/start`, {
+                    method: "POST",
+                  });
+                  if (res.ok) {
+                    window.location.reload();
+                  } else {
+                    const data = await res.json().catch(() => ({}));
+                    const msg = typeof data?.error === "string" ? data.error : (typeof data?.message === "string" ? data.message : "Failed to start");
+                    setStartError(msg);
+                  }
+                }}
+                className="ml-2 text-sm text-blue-600"
+              >
+                Start
+              </button>
+              {startError && (
+                <span className="ml-2 text-sm text-red-600">{startError}</span>
+              )}
+            </>
           )}
         </div>
       </div>
+      {addLeadError && (
+        <p className="text-red-600 text-sm mb-2">{addLeadError}</p>
+      )}
       <div className="mt-2 flex gap-2 flex-wrap">
         <input
           value={addingLead}

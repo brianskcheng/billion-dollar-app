@@ -17,21 +17,63 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
   const [limit, setLimit] = useState(50);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastSearchZero, setLastSearchZero] = useState(false);
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [manualEmail, setManualEmail] = useState("");
+  const [manualCompany, setManualCompany] = useState("");
+  const [manualLoading, setManualLoading] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
+
+  async function handleAddManual() {
+    const email = manualEmail.trim();
+    if (!email) return;
+    setManualLoading(true);
+    setManualError(null);
+    try {
+      const res = await fetch("/api/leads/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          company_name: manualCompany.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setManualEmail("");
+        setManualCompany("");
+        setShowManualAdd(false);
+        window.location.reload();
+      } else {
+        setManualError((data.error as string) || "Failed to add lead");
+      }
+    } catch (e) {
+      setManualError(e instanceof Error ? e.message : "Failed to add lead");
+    } finally {
+      setManualLoading(false);
+    }
+  }
 
   async function handleSearch() {
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
+    setLastSearchZero(false);
     try {
       const res = await fetch("/api/leads/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: query.trim(), limit }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        window.location.reload();
+        const count = (data.count as number) ?? 0;
+        if (count > 0) {
+          window.location.reload();
+        } else {
+          setLastSearchZero(true);
+        }
       } else {
-        const data = await res.json().catch(() => ({}));
         setError((data.error as string) || "Search failed");
       }
     } catch (e) {
@@ -68,6 +110,47 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
         </button>
       </div>
       {error && <p className="text-red-600 text-sm">{error}</p>}
+      {lastSearchZero && (
+        <p className="text-amber-600 text-sm">
+          Search completed. No leads found for this query. Try different keywords or location.
+        </p>
+      )}
+      <div className="flex gap-2 items-center">
+        <button
+          onClick={() => setShowManualAdd(!showManualAdd)}
+          className="px-3 py-1.5 text-sm border rounded"
+        >
+          {showManualAdd ? "Cancel" : "Add lead manually"}
+        </button>
+        {showManualAdd && (
+          <div className="flex gap-2 items-center flex-wrap">
+            <input
+              type="email"
+              placeholder="Email (required)"
+              value={manualEmail}
+              onChange={(e) => setManualEmail(e.target.value)}
+              className="border px-2 py-1 rounded text-sm w-48"
+            />
+            <input
+              type="text"
+              placeholder="Company name (optional)"
+              value={manualCompany}
+              onChange={(e) => setManualCompany(e.target.value)}
+              className="border px-2 py-1 rounded text-sm w-40"
+            />
+            <button
+              onClick={handleAddManual}
+              disabled={manualLoading || !manualEmail.trim()}
+              className="px-3 py-1.5 text-sm bg-gray-200 rounded disabled:opacity-50"
+            >
+              {manualLoading ? "Adding..." : "Add"}
+            </button>
+          </div>
+        )}
+      </div>
+      {showManualAdd && manualError && (
+        <p className="text-red-600 text-sm">{manualError}</p>
+      )}
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b">

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getActiveIntegration } from "@/lib/email-provider";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
@@ -13,15 +14,11 @@ export async function POST(
 
   const { id } = await params;
 
-  const { data: integration } = await supabase
-    .from("integrations_google")
-    .select("email")
-    .eq("user_id", user.id)
-    .single();
+  const integration = await getActiveIntegration(supabase, user.id);
 
   if (!integration) {
     return NextResponse.json(
-      { error: "Connect Gmail first" },
+      { error: "Connect your email first" },
       { status: 400 }
     );
   }

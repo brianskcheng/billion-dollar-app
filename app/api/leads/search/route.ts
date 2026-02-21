@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { searchGoogleMaps } from "@/lib/apify";
+import { parseBody, leadsSearchSchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -12,18 +13,18 @@ export async function POST(request: Request) {
   const token = process.env.APIFY_API_TOKEN;
   if (!token) {
     return NextResponse.json(
-      { error: "APIFY_API_TOKEN not configured" },
+      {
+        error:
+          "Lead search requires APIFY_API_TOKEN. Add it to your .env file and restart the server. Get a token at https://console.apify.com/account/integrations",
+      },
       { status: 500 }
     );
   }
 
-  const body = await request.json();
-  const query = body.query as string;
-  const limit = Math.min(Math.max(parseInt(body.limit) || 50, 1), 100);
-
-  if (!query?.trim()) {
-    return NextResponse.json({ error: "query required" }, { status: 400 });
-  }
+  const parsed = await parseBody(leadsSearchSchema, request);
+  if (parsed.error) return parsed.error;
+  const { query, limit: limitRaw } = parsed.data;
+  const limit = limitRaw ?? 50;
 
   try {
     const items = await searchGoogleMaps(query, limit, token);

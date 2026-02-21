@@ -1,22 +1,20 @@
-import { createClient } from "@/lib/supabase/server";
-import { sendEmail } from "@/lib/gmail";
+import { requireAuth } from "@/lib/auth";
+import { getActiveIntegration, sendEmail } from "@/lib/email-provider";
 import { checkCanSend } from "@/lib/limits";
+import { createClient } from "@/lib/supabase/server";
+import { parseBody, emailSendSchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth(supabase);
+  if (auth.response) return auth.response;
+  const user = auth.user;
 
-  const body = await request.json();
-  const messageId = body.messageId as string;
-  const subjectOverride = body.subject as string | undefined;
-  const bodyTextOverride = body.body_text as string | undefined;
-  if (!messageId) {
-    return NextResponse.json({ error: "messageId required" }, { status: 400 });
-  }
+  const parsed = await parseBody(emailSendSchema, request);
+  if (parsed.error) return parsed.error;
+  const { messageId, subject: subjectOverride, body_text: bodyTextOverride } =
+    parsed.data;
 
   const canSend = await checkCanSend(supabase, user.id);
   if (!canSend.ok) {
@@ -48,27 +46,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   }
 
-  const { data: integration } = await supabase
-    .from("integrations_google")
-    .select("refresh_token, email")
-    .eq("user_id", user.id)
-    .single();
+  const integration = await getActiveIntegration(supabase, user.id);
 
   if (!integration) {
     return NextResponse.json(
-      { error: "Gmail not connected. Connect Gmail first." },
+      { error: "Connect your email first." },
       { status: 400 }
     );
   }
 
   const toEmail = lead.email;
-  const fromEmail = integration.email as string;
+  const fromEmail = integration.email;
   const subject = subjectOverride ?? (message.subject as string);
   const bodyText = bodyTextOverride ?? (message.body_text as string);
 
   try {
     const { messageId: providerMessageId, threadId } = await sendEmail(
-      integration.refresh_token as string,
+      integration,
       fromEmail,
       toEmail,
       subject,

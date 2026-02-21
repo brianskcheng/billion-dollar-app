@@ -1,12 +1,13 @@
+import { requireAuth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_OFFER, DEFAULT_VALUE_PROP } from "@/lib/defaults";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth(supabase);
+  if (auth.response) return auth.response;
+  const user = auth.user;
 
   const body = await request.json();
   const name = body.name as string;
@@ -19,9 +20,8 @@ export async function POST(request: Request) {
     .insert({
       user_id: user.id,
       name: name.trim(),
-      value_prop:
-        "We place pre-vetted candidates fast (7-10 days) without wasting your time.",
-      offer: "15-min call + we'll share 3 candidate profiles relevant to you.",
+      value_prop: DEFAULT_VALUE_PROP,
+      offer: DEFAULT_OFFER,
       daily_send_limit: 10,
       status: "draft",
     })

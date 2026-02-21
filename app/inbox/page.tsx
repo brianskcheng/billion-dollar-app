@@ -1,15 +1,32 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ConnectGmailButton } from "@/components/connect-gmail-button";
+import { ConnectEmailButton } from "@/components/connect-email-button";
 
 export default async function InboxPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const isAdmin =
+    (profile?.role as string) === "admin" ||
+    (process.env.ADMIN_EMAIL &&
+      user.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
+
   const { data: gmail } = await supabase
     .from("integrations_google")
+    .select("email")
+    .eq("user_id", user.id)
+    .single();
+
+  const { data: microsoft } = await supabase
+    .from("integrations_microsoft")
     .select("email")
     .eq("user_id", user.id)
     .single();
@@ -68,8 +85,12 @@ export default async function InboxPage() {
         <Link href="/leads">Leads</Link>
         <Link href="/campaigns">Campaigns</Link>
         <Link href="/inbox" className="font-medium">Inbox</Link>
+        {isAdmin && <Link href="/admin">Admin</Link>}
         <div className="ml-auto flex items-center gap-4">
-          <ConnectGmailButton connected={!!gmail} />
+          <ConnectEmailButton
+            gmailConnected={!!gmail}
+            microsoftConnected={!!microsoft}
+          />
           <form action="/api/auth/logout" method="post">
             <button type="submit" className="text-gray-500 hover:text-black">
               Log out

@@ -1,23 +1,30 @@
 "use client";
 
-export function GmailFeedbackBanner({
+export function EmailFeedbackBanner({
   gmailConnected,
   gmailError,
+  emailConnected,
+  emailError,
+  authError,
 }: {
   gmailConnected?: string;
   gmailError?: string;
+  emailConnected?: string;
+  emailError?: string;
+  authError?: string;
 }) {
-  if (gmailConnected) {
+  if (gmailConnected || emailConnected) {
     return (
       <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-green-800 text-sm">
-        Gmail connected successfully.
+        Email connected successfully.
       </div>
     );
   }
-  if (gmailError) {
+  const error = gmailError ?? emailError ?? authError;
+  if (error) {
     return (
       <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-800 text-sm">
-        Gmail error: {decodeURIComponent(gmailError)}
+        {decodeURIComponent(error)}
       </div>
     );
   }
